@@ -1,14 +1,23 @@
-import React, { useEffect, useState } from "react";
-import API from "./api";
+import React from "react";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
-    const [message, setMessage] = useState("");
-
-    useEffect(() => {
-        API.get("/").then((res) => setMessage(res.data));
-    }, []);
-
-    return <h1>{message}</h1>;
+  return (
+    <AuthProvider>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
 }
 
 export default App;
+
