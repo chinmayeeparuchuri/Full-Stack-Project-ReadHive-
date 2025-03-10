@@ -2,7 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import mongoose from "mongoose";
-import booksRoute from "./routes/books.js"; // Use ES module import
+import booksRoute from "./routes/books.js"; 
+import authRoute from "./routes/auth.js";  // Import auth routes
 
 dotenv.config();
 const app = express();
@@ -16,14 +17,14 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
   .catch(err => console.error("MongoDB Connection Error:", err));
 
-
 // Test Route to Check API is Running
 app.get("/", (req, res) => {
   res.send("Read Hive API is running...");
 });
 
-// Books Route
+// API Routes
 app.use("/api/books", booksRoute);
+app.use("/api/auth", authRoute);  // Register auth routes
 
 // Start Server
 const PORT = process.env.PORT || 5001;
