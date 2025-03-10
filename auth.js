@@ -1,81 +1,69 @@
 import express from "express";
-import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { check, validationResult } from "express-validator";
-import authMiddleware from "../middleware/auth.js";
+import User from "../models/User.js";
 
 const router = express.Router();
 
-// Register User
-router.post(
-  "/register",
-  [
-    check("username", "Username is required").not().isEmpty(),
-    check("email", "Please include a valid email").isEmail(),
-    check("password", "Password must be 6 or more characters").isLength({ min: 6 }),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+// User Registration
+router.post("/register", async (req, res) => {
+  const { username, email, password } = req.body;
 
-    const { username, email, password } = req.body;
-
-    try {
-      let user = await User.findOne({ email }); // ✅ Corrected variable name
-      if (user) return res.status(400).json({ error: "User already exists" });
-
-      user = new User({ username, email, password }); // ✅ Corrected variable name
-      await user.save();
-
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: "1h" }); // ✅ Use `user.id`
-
-      res.json({ token });
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send("Server error");
-    }
+  // Check if all fields are provided
+  if (!username || !email || !password) {
+    return res.status(400).json({ message: "All fields are required" });
   }
-);
 
-// Login User
-router.post(
-  "/login",
-  [
-    check("email", "Please include a valid email").isEmail(),
-    check("password", "Password is required").exists(),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-    const { email, password } = req.body;
-
-    try {
-      const user = await User.findOne({ email });
-      if (!user) return res.status(400).json({ error: "Invalid credentials" });
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
-
-      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-      res.json({ token });
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send("Server error");
-    }
-  }
-);
-
-// Get User Profile (Protected)
-router.get("/profile", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select("-password");
-    res.json(user);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
+    // Check if the username already exists
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already taken" });
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user with email
+    const newUser = new User({ username, email, password: hashedPassword });
+    await newUser.save();
+
+    res.status(201).json({ message: "Account created successfully. You can now log in." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// User Login
+router.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  // Check if all fields are provided
+  if (!username || !password) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  try {
+    // Find user by username
+    const existingUser = await User.findOne({ username });
+    if (!existingUser) {
+      return res.status(400).json({ message: "Username does not exist." });
+    }
+
+    // Check if password is correct
+    const isPasswordCorrect = await bcrypt.compare(password, existingUser.password);
+    if (!isPasswordCorrect) {
+      return res.status(400).json({ message: "Incorrect password." });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: existingUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    res.status(200).json({ message: "Login successful", token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
